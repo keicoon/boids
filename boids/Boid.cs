@@ -4,7 +4,6 @@
  */
 
 using System.Numerics;
-using static System.Net.Mime.MediaTypeNames;
 
 namespace boids
 {
@@ -41,17 +40,17 @@ namespace boids
 
     public class Boid
     {
-        BoidParameter _configuration;
+        private static Random Random = new Random();
 
-        public IBoidHandler Actor { get; }
+        private BoidParameter _configuration;
 
-        public Boid(BoidParameter configuration, IBoidHandler actor) 
+        public IBoidHandler Handler { get; }
+
+        public Boid(BoidParameter configuration, IBoidHandler handler) 
         {
             _configuration = configuration;
 
-            Actor = actor;
-
-            Actor.GroupId = Utils.Next(255);
+            Handler = handler;
         }
 
         public void Update(IReadOnlyList<Boid> boids, IReadOnlyList<Avoid> avoids)
@@ -83,7 +82,7 @@ namespace boids
             var cohese = GetCohesion(friends);
 
             // NOTE: Ignroe noise of 'z'.
-            var noise = new Vector3(Utils.NextSingle() * 2 - 1, Utils.NextSingle() * 2 - 1, 0f);
+            var noise = new Vector3(Random.NextSingle() * 2 - 1, Random.NextSingle() * 2 - 1, 0f);
 
             allign *= 1f;
             if (!_configuration.UsingFriend) allign *= 0f;
@@ -248,7 +247,7 @@ namespace boids
             Single groupId = this.GetGroupId();
             groupId += GetAverageColor(friends, (Int32)groupId) * 0.03f;
             // Give change to split new group
-            groupId += (Utils.NextSingle() * 2 - 1);
+            groupId += (Random.NextSingle() * 2 - 1);
             this.SetGroupId((Int32)((groupId + 255) % 255));
         }
     }

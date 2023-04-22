@@ -35,7 +35,7 @@ namespace Example.Boids
 
         // @hack : Ignore polymorphism issue
         public IEnumerable<Actor> Actors => 
-            _boids.Select(boid => (Actor)boid.Actor).Concat(_avoid.Select(avoid => (Actor)avoid.Actor));
+            _boids.Select(boid => (Actor)boid.Handler).Concat(_avoid.Select(avoid => (Actor)avoid.Handler));
 
         public void Update()
         {

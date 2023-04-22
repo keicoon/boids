@@ -2,11 +2,11 @@
 {
     public class Avoid
     {
-        public IBoidHandler Actor { get; }
+        public IBoidHandler Handler { get; }
 
-        public Avoid(IBoidHandler actor)
+        public Avoid(IBoidHandler handler)
         {
-            Actor = actor;
+            Handler = handler;
         }
     }
 }
