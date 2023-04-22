@@ -4,7 +4,10 @@ namespace boids
 {
     internal static class Utils
     {
-        public static Random Random = Random.Shared;
+        static Random Random = new Random();
+
+        public static Int32 Next(Int32 maxValue) => Random.Next(maxValue);
+        public static Single NextSingle() => Random.NextSingle();
     }
 
     internal static class ExtensionMethod
@@ -27,11 +30,6 @@ namespace boids
         internal static void SetGroupId(this Boid a, Int32 id)
         {
             a.Actor.GroupId = id;
-        }
-
-        internal static Boolean InRange(this Boid a, Boid b, Single range)
-        {
-            return a.GetDistance(b) < range;
         }
 
         internal static Single GetDistance(this Boid a, Boid b)

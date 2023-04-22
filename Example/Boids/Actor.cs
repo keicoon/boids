@@ -25,12 +25,12 @@ namespace Example.Boids
                 var right = new Vector3(loc.X + Radius * 0.25f * MathF.Cos(radian + rot), loc.Y + Radius * 0.25f * MathF.Sin(radian + rot), 0f);
                 var left = new Vector3(loc.X + Radius * 0.25f * MathF.Cos(radian - rot), loc.Y + Radius * 0.25f * MathF.Sin(radian - rot), 0f);
 
-                var brush = new SolidBrush(Color.FromArgb(80, actor.GroupId, 80));
+                var brush = new SolidBrush(Color.FromArgb(actor.GroupId, 90, 200));
                 gra.FillPolygon(brush, new PointF[] { GetPointF(head), GetPointF(right), GetPointF(left) });
             }
         }
 
-        public class AvoidDrawHandler : IDrawHandler
+        public class AvoidRectDrawHandler : IDrawHandler
         {
             static Brush Brush = new SolidBrush(Color.Red);
 
@@ -47,10 +47,29 @@ namespace Example.Boids
                 gra.FillRectangle(Brush, GetRectangle(loc.X - Width * 0.5f, loc.Y - Hegiht * 0.5f, Width, Hegiht));
             }
         }
+
+        public class AvoidCircleDrawHandler : IDrawHandler
+        {
+            static Brush Brush = new SolidBrush(Color.Red);
+
+            public Int32 Radius { get; init; }
+
+            void IDrawHandler.Draw(Graphics gra, Actor actor)
+            {
+                static Rectangle GetRectangle(Single x, Single y, Int32 width, Int32 height) =>
+                    new Rectangle((Int32)x, (Int32)y, width, height);
+
+                var loc = actor.Location;
+
+                gra.FillEllipse(Brush, GetRectangle(loc.X - Radius, loc.Y - Radius, Radius * 2, Radius * 2));
+            }
+        }
     }
 
     public class Actor : IBoidHandler
     {
+        public static Random Random = new Random();
+
         public IDrawHandler DrawHandler { get; }
 
         private Vector3 _location;
@@ -75,7 +94,9 @@ namespace Example.Boids
             DrawHandler = drawHandler;
 
             Location = initLocation;
-            Direction = Vector3.Zero;
+
+            var radian = MathF.PI * Random.NextSingle();
+            Direction = new Vector3(MathF.Cos(radian), MathF.Sin(radian), 0f);
         }
 
         public void Draw(Graphics gra)

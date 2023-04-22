@@ -4,6 +4,7 @@
  */
 
 using System.Numerics;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace boids
 {
@@ -50,44 +51,28 @@ namespace boids
 
             Actor = actor;
 
-            Actor.GroupId = Utils.Random.Next(255);
+            Actor.GroupId = Utils.Next(255);
         }
-
-        private IReadOnlyList<Boid> _friends = new List<Boid>();
-        const Int32 SkipUpdateOfFriends = 5;
-        private Int32 _counter = 0;
 
         public void Update(IReadOnlyList<Boid> boids, IReadOnlyList<Avoid> avoids)
         {
-            Boolean IsSkipUpdateOfFriends()
-            {
-                _counter = (++_counter) % SkipUpdateOfFriends;
-                return _counter == 0;
-            }
+            var nearby = new List<Boid>();
 
-            if (IsSkipUpdateOfFriends())
+            foreach (var boid in boids)
             {
-                var newFriends = new List<Boid>();
-                foreach (var boid in boids)
+                if (boid == this) continue;
+                if (MathF.Abs(boid.GetLocation().X - this.GetLocation().X) < _configuration.FriendRadius &&
+                    MathF.Abs(boid.GetLocation().Y - this.GetLocation().Y) < _configuration.FriendRadius)
                 {
-                    if (boid == this) continue; // skip self
-                    if (!this.InRange(boid, _configuration.FriendRadius)) continue;
-
-                    newFriends.Add(boid);
+                    nearby.Add(boid);
                 }
-                _friends = newFriends;
             }
 
-            var nearby = _friends;
-
-            Single groupId = this.GetGroupId();
-            groupId += GetAverageColor(nearby, (Int32)groupId) * 0.03f;
-            groupId += Utils.Random.NextSingle();
-
-            this.SetGroupId(((Int32)groupId + 255) % 255);
+            UpdateGroupId(nearby);
 
             var delta = CalculateNextMovement(nearby, avoids);
-            this.UpdateMovement(delta * 10f);
+
+            this.UpdateMovement(delta);
         }
 
         private Vector3 CalculateNextMovement(IReadOnlyList<Boid> friends, IReadOnlyList<Avoid> avoids)
@@ -98,7 +83,7 @@ namespace boids
             var cohese = GetCohesion(friends);
 
             // NOTE: Ignroe noise of 'z'.
-            var noise = new Vector3(Utils.Random.NextSingle(), Utils.Random.NextSingle(), 0f);
+            var noise = new Vector3(Utils.NextSingle() * 2 - 1, Utils.NextSingle() * 2 - 1, 0f);
 
             allign *= 1f;
             if (!_configuration.UsingFriend) allign *= 0f;
@@ -115,7 +100,7 @@ namespace boids
             noise *= 0.1f;
             if (!_configuration.UsingNoise) noise *= 0f;
 
-            var nextMovement = Vector3.Zero;
+            var nextMovement = this.GetDirection();
             nextMovement += allign;
             nextMovement += avoidDir;
             nextMovement += avoidObjects;
@@ -129,7 +114,8 @@ namespace boids
 
             this.SetDirection(Vector3.Zero == nextMovement ? Vector3.Zero : Vector3.Normalize(nextMovement));
 
-            return nextMovement;
+            var speedMag = 3.0f;
+            return nextMovement * speedMag;
         }
 
         Vector3 GetAverageDir(IReadOnlyList<Boid> friends)
@@ -140,12 +126,13 @@ namespace boids
             {
                 var dist = this.GetDistance(boid);
 
-                // Skip that check 'FriendRadius'.
+                if (dist > 0f && (dist < _configuration.FriendRadius))
+                {
+                    var delta = boid.GetDirection();
+                    delta /= dist;
 
-                var delta = boid.GetDirection();
-                delta /= dist;
-
-                sum += delta;
+                    sum += delta;
+                }
             }
 
             return sum;
@@ -159,14 +146,15 @@ namespace boids
             {
                 var dist = this.GetDistance(boid);
 
-                if (dist > _configuration.CrowdRadius) continue;
+                if (dist > 0 && dist < _configuration.CrowdRadius)
+                {
+                    // Calculate vector pointing away from neighbor
+                    var diff = this.GetLocation() - boid.GetLocation();
+                    diff = Vector3.Normalize(diff);
+                    diff /= dist; // Weight by distance
 
-                // Calculate vector pointing away from neighbor
-                var diff = this.GetLocation() - boid.GetLocation();
-                diff = Vector3.Normalize(diff);
-                diff /= dist; // Weight by distance
-
-                steer += diff;
+                    steer += diff;
+                }
             }
 
             return steer;
@@ -180,14 +168,15 @@ namespace boids
             {
                 var dist = this.GetDistance(avoid);
 
-                if (dist > _configuration.AvoidRadius) continue;
+                if (dist > 0 && dist < _configuration.AvoidRadius)
+                {
+                    // Calculate vector pointing away from neighbor
+                    var diff = this.GetLocation() - avoid.GetLocation();
+                    diff = Vector3.Normalize(diff);
+                    diff /= dist; // Weight by distance
 
-                // Calculate vector pointing away from neighbor
-                var diff = this.GetLocation() - avoid.GetLocation();
-                diff = Vector3.Normalize(diff);
-                diff /= dist; // Weight by distance
-
-                steer += diff;
+                    steer += diff;
+                }
             }
 
             return steer;
@@ -202,10 +191,11 @@ namespace boids
             {
                 var dist = this.GetDistance(boid);
 
-                if (dist > _configuration.CoheseRadius) continue;
-
-                sum += boid.GetLocation(); // Add location
-                count++;
+                if (dist > 0 && dist < _configuration.CoheseRadius)
+                {
+                    sum += boid.GetLocation(); // Add location
+                    count++;
+                }
             }
 
             if (count > 0)
@@ -222,34 +212,44 @@ namespace boids
                 return Vector3.Zero;
             }
         }
-        private Single GetAverageColor(IReadOnlyList<Boid> friends, Int32 groupId)
+
+        private void UpdateGroupId(IReadOnlyList<Boid> friends)
         {
-            var total = 0f;
-            var count = 0;
-
-            foreach (var boid in friends)
+            static Single GetAverageColor(IReadOnlyList<Boid> friends, Int32 groupId)
             {
-                var otherGroupId = boid.GetGroupId();
+                var total = 0;
+                var count = 0;
 
-                if (otherGroupId - groupId < -128)
+                foreach (var boid in friends)
                 {
-                    total += otherGroupId + 255 - groupId;
-                }
-                else if (otherGroupId - groupId > 128)
-                {
-                    total += otherGroupId - 255 - groupId;
-                }
-                else
-                {
-                    total += otherGroupId - groupId;
+                    var otherGroupId = boid.GetGroupId();
+
+                    if (otherGroupId - groupId < -128)
+                    {
+                        total += otherGroupId + 255 - groupId;
+                    }
+                    else if (otherGroupId - groupId > 128)
+                    {
+                        total += otherGroupId - 255 - groupId;
+                    }
+                    else
+                    {
+                        total += otherGroupId - groupId;
+                    }
+
+                    count++;
                 }
 
-                count++;
+                if (count == 0) return 0;
+
+                return total / (Single)count;
             }
 
-            if (count == 0) return 0;
-
-            return total / count;
+            Single groupId = this.GetGroupId();
+            groupId += GetAverageColor(friends, (Int32)groupId) * 0.03f;
+            // Give change to split new group
+            groupId += (Utils.NextSingle() * 2 - 1);
+            this.SetGroupId((Int32)((groupId + 255) % 255));
         }
     }
 }

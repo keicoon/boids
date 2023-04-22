@@ -19,8 +19,8 @@ namespace Example.Boids
             {
                 FriendRadius = 60f,
                 CrowdRadius = 60f / 1.3f,
-                AvoidRadius = 90f,
-                CoheseRadius = 60f,
+                AvoidRadius = 40f,
+                CoheseRadius = 40f,
                 MaxSpeed = 2.1f,
 
                 UsingFriend = true,
@@ -59,7 +59,7 @@ namespace Example.Boids
 
         public void AddAvoid(Vector3 location)
         {
-            var actor = new Actor(new AvoidDrawHandler() { Width = 15, Hegiht = 15 }, location);
+            var actor = new Actor(new AvoidCircleDrawHandler() { Radius = 8 }, location);
 
             _avoid.Add(new Avoid(actor));
         }
